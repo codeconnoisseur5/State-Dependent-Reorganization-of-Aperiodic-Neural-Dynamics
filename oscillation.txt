@@ -1,0 +1,175 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+import os
+from pathlib import Path
+import matplotlib
+
+ 
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['font.sans-serif'] = ['Arial']
+plt.rcParams['axes.unicode_minus'] = False
+
+ 
+nc_path = "/Users..."
+ac_path = "/Users..."
+save_dir = "/Users..."
+
+ 
+os.makedirs(save_dir, exist_ok=True)
+
+ 
+# visual_channels = ['O3', 'O4', 'Po1', 'Po2', 'Oz']
+visual_channels = ['Oz'.......]
+ 
+ 
+nc_data = pd.read_csv(nc_path)
+ac_data = pd.read_csv(ac_path)
+
+
+nc_visual = nc_data[visual_channels]
+ac_visual = ac_data[visual_channels]
+
+ 
+nc_visual_avg = nc_visual.mean(axis=1)
+ac_visual_avg = ac_visual.mean(axis=1)
+
+ 
+nc_mean = nc_visual_avg.mean()
+ac_mean = ac_visual_avg.mean()
+nc_sem = nc_visual_avg.sem()
+ac_sem = ac_visual_avg.sem()
+
+ 
+t_stat, p_value = stats.ttest_ind(nc_visual_avg, ac_visual_avg, equal_var=False)  # Welch's t-test
+
+ 
+fig, ax = plt.subplots(figsize=(6, 8), dpi=300)
+
+ 
+plt.style.use('default')
+sns.set_style("white")
+
+ 
+nc_color = '#1f77b4'  #  
+ac_color = '#d62728'  #  
+
+ 
+bar_width = 0.6
+bars = ax.bar(['Normal Cognition', 'Abnormal Cognition'], 
+              [nc_mean, ac_mean], 
+              width=bar_width, 
+              color=[nc_color, ac_color],
+              edgecolor='black',
+              linewidth=1.5,
+              zorder=3)
+
+ 
+ax.errorbar(['Normal Cognition', 'Abnormal Cognition'], 
+            [nc_mean, ac_mean], 
+            yerr=[nc_sem, ac_sem],
+            fmt='none', 
+            ecolor='black',
+            elinewidth=2,
+            capsize=12,
+            capthick=2,
+            zorder=4)
+
+if p_value < 0.001:
+    p_text = '***'
+elif p_value < 0.01:
+    p_text = '**'
+elif p_value < 0.05:
+    p_text = '*'
+else:
+    p_text = 'ns'
+
+ 
+max_height = max(nc_mean + nc_sem, ac_mean + ac_sem)
+line_height = max_height * 1.1
+text_height = line_height * 1.05
+
+ 
+ax.plot([0, 0, 1, 1], [line_height, text_height, text_height, line_height], 
+        color='black', linewidth=2, zorder=2)
+ 
+ax.text(0.5, text_height * 1.02, p_text, 
+        ha='center', va='bottom', fontsize=28, fontweight='bold', zorder=5)
+
+ 
+ax.set_ylabel('Aperiodic Exponent (Mean ± SEM)', fontsize=16, fontweight='bold')
+
+ 
+ax.set_title('Visual Cortex Aperiodic Exponent\nNormal vs Abnormal Cognition', 
+             fontsize=18, fontweight='bold', pad=25)
+
+ 
+ax.set_ylim([0, 1.6])
+
+ 
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.spines['left'].set_linewidth(2)
+ax.spines['bottom'].set_linewidth(2)
+
+ 
+ax.tick_params(axis='both', which='major', labelsize=14)
+ax.tick_params(axis='both', which='minor', labelsize=12)
+
+ 
+ax.grid(False)
+
+ 
+plt.tight_layout()
+
+ 
+svg_path = os.path.join(save_dir, 'visual_cortex_exponent_comparison_clean.svg')
+plt.savefig(svg_path, format='svg', bbox_inches='tight')
+print(f" : {svg_path}")
+ 
+stats_path = os.path.join(save_dir, 'statistical_results.txt')
+with open(stats_path, 'w') as f:
+    f.write("=" * 60 + "\n")
+    f.write("VISUAL CORTEX APERIODIC EXPONENT STATISTICAL ANALYSIS\n")
+    f.write("=" * 60 + "\n\n")
+    
+    f.write(f"DATA SUMMARY:\n")
+    f.write(f"{'Group':<25} {'N':<10} {'Mean':<15} {'SEM':<15}\n")
+    f.write("-" * 60 + "\n")
+    f.write(f"{'Normal Cognition':<25} {len(nc_visual_avg):<10} {nc_mean:.4f}{'':<10} {nc_sem:.4f}\n")
+    f.write(f"{'Abnormal Cognition':<25} {len(ac_visual_avg):<10} {ac_mean:.4f}{'':<10} {ac_sem:.4f}\n\n")
+    
+    f.write(f"STATISTICAL TEST (Welch's t-test):\n")
+    f.write(f"{'t-statistic':<20} = {t_stat:.4f}\n")
+    f.write(f"{'p-value':<20} = {p_value:.6f}\n")
+    f.write(f"{'Significance':<20} = {p_text}\n\n")
+    
+    f.write(f"VISUAL CHANNELS ANALYZED:\n")
+    f.write(f"{', '.join(visual_channels)}\n\n")
+    
+    f.write(f"INDIVIDUAL CHANNEL MEANS (Normal Cognition):\n")
+    for channel in visual_channels:
+        mean_val = nc_data[channel].mean()
+        sem_val = nc_data[channel].sem()
+        f.write(f"  {channel}: {mean_val:.4f} ± {sem_val:.4f}\n")
+    
+    f.write(f"\nINDIVIDUAL CHANNEL MEANS (Abnormal Cognition):\n")
+    for channel in visual_channels:
+        mean_val = ac_data[channel].mean()
+        sem_val = ac_data[channel].sem()
+        f.write(f"  {channel}: {mean_val:.4f} ± {sem_val:.4f}\n")
+
+print(f": {stats_path}")
+
+ 
+plt.show()
+
+ 
+print("\n" + "=" * 60)
+print(" :")
+print(f"  (N={len(nc_visual_avg)}): {nc_mean:.4f} ± {nc_sem:.4f}")
+print(f"  (N={len(ac_visual_avg)}): {ac_mean:.4f} ± {ac_sem:.4f}")
+print(f"t({len(nc_visual_avg)+len(ac_visual_avg)-2}) = {t_stat:.3f}, p = {p_value:.5f}")
+print("=" * 60)

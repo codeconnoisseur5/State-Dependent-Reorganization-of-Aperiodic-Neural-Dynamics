@@ -1,0 +1,289 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from scipy import stats
+from scipy.interpolate import interp1d
+import seaborn as sns
+
+ 
+plt.style.use('seaborn-whitegrid')
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
+    'font.size': 10,
+    'axes.labelsize': 11,
+    'axes.titlesize': 12,
+    'legend.fontsize': 9,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'figure.dpi': 300,
+    'savefig.dpi': 300,
+    'savefig.bbox': 'tight',
+    'savefig.pad_inches': 0.1,
+    'axes.linewidth': 0.8,
+    'grid.linewidth': 0.5,
+    'lines.linewidth': 2,
+    'lines.markersize': 6,
+    'patch.linewidth': 0.5,
+})
+
+file_path = '/Users...'
+df = pd.read_csv(file_path)
+
+ 
+print(" :")
+print(df.head())
+print("\n :")
+print(df.dtypes)
+
+ 
+network_mapping = {
+    'Auditory_Core_Network': 'ACN',
+    'Auditory_Extended_Network': 'AEN',
+    'Frontoparietal_Control_Network': 'PFCN',
+    'Posterior_Default_Mode_Network': 'pDMN',
+    'Visual_Network': 'VisN',
+    'Sensorimotor_Network': 'SMN'
+}
+
+ 
+save_folder = '/Users....'
+os.makedirs(save_folder, exist_ok=True)
+
+colors = {
+    'Normal Hearing': '#1f77b4',   
+    'Hearing Impaired': '#d62728'   
+}
+
+ 
+condition_styles = {
+    'Eyes Closed': {'linestyle': '--', 'alpha': 0.7},
+    'Eyes Open': {'linestyle': '-', 'alpha': 0.9}
+}
+
+def remove_outliers_zscore(data, column, threshold=3):
+ 
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def create_moca_style_figure(network_name, abbrev):
+ 
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=300)
+    fig.suptitle(f'{abbrev}: MoCA-related Differences in Aperiodic Exponent', 
+                 fontsize=14, fontweight='bold', y=0.98)
+    
+ 
+    all_stats = []
+    
+    for ax_idx, condition in enumerate(['Eyes Closed', 'Eyes Open']):
+        ax = axes[ax_idx]
+        
+ 
+        group_data = {}
+        
+        for group in ['Normal Hearing', 'Hearing Impaired']:
+ 
+            mask = (df['Group'] == group) & (df['Condition'] == condition)
+            group_df = df[mask].copy()
+            
+            if len(group_df) > 3:  
+ 
+                group_df_clean = remove_outliers_zscore(group_df, network_name, threshold=3)
+                
+ 
+                if len(group_df_clean) > 3:
+ 
+                    moca_scores = group_df_clean['MoCA'].values
+                    values = group_df_clean[network_name].values
+                    
+ 
+                    slope, intercept, r_value, p_value, std_err = stats.linregress(moca_scores, values)
+                    
+ 
+                    rho, spearman_p = stats.spearmanr(moca_scores, values)
+                    
+ 
+                    all_stats.append({
+                        'Network': abbrev,
+                        'Condition': condition,
+                        'Group': group,
+                        'n': len(moca_scores),
+                        'n_original': len(group_df),
+                        'Linear_r': r_value,
+                        'Linear_p': p_value,
+                        'Spearman_rho': rho,
+                        'Spearman_p': spearman_p,
+                        'Slope': slope
+                    })
+ 
+                    moca_range = np.linspace(moca_scores.min(), moca_scores.max(), 100)
+                    pred_values = intercept + slope * moca_range
+                    
+ 
+                    residuals = values - (intercept + slope * moca_scores)
+                    stderr_pred = np.std(residuals) * np.sqrt(1/len(moca_scores) + 
+                                                             (moca_range - np.mean(moca_scores))**2 / 
+                                                             np.sum((moca_scores - np.mean(moca_scores))**2))
+                    
+ 
+                    z_value = 1.37  # 对于83% CI
+                    ci_lower = pred_values - z_value * stderr_pred
+                    ci_upper = pred_values + z_value * stderr_pred
+                    
+ 
+                    ax.fill_between(moca_range, ci_lower, ci_upper, 
+                                   color=colors[group], alpha=0.15, linewidth=0)
+                    
+ 
+                    line_style = condition_styles[condition]['linestyle']
+                    line_alpha = condition_styles[condition]['alpha']
+                    ax.plot(moca_range, pred_values, 
+                           color=colors[group], 
+                           linestyle=line_style,
+                           linewidth=2.5,
+                           alpha=line_alpha,
+                           label=f'{group.split()[0]} (n={len(moca_scores)})')
+                    
+ 
+                    ax.scatter(moca_scores, values, 
+                              color=colors[group],
+                              alpha=0.4,
+                              s=40,
+                              edgecolor=colors[group],
+                              linewidth=0.5)
+                    
+ 
+                    group_data[group] = {
+                        'moca_scores': moca_scores,
+                        'values': values,
+                        'pred': pred_values,
+                        'moca_range': moca_range
+                    }
+        
+ 
+        ax.set_xlabel('MoCA Score', fontsize=11, fontweight='bold')
+        ax.set_ylabel('Aperiodic Exponent', fontsize=11, fontweight='bold')
+        ax.set_title(f'{condition}', fontsize=12, fontweight='bold', pad=10)
+        
+ 
+        ax.set_xlim(20, 30)   
+        ax.set_ylim(0.2, 1.4)   
+        
+ 
+        ax.grid(True, alpha=0.1, linestyle='-', linewidth=0.5)
+        
+ 
+        ax.legend(loc='upper right', frameon=True, fancybox=True, 
+                 framealpha=0.9, edgecolor='lightgray')
+        
+ 
+        stats_text = f'Spearman ρ: '
+        group_stats = [s for s in all_stats if s['Condition'] == condition]
+        for stat in group_stats:
+            group_short = stat['Group'].split()[0]
+            rho_val = stat['Spearman_rho']
+            p_val = stat['Spearman_p']
+            p_star = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else ''
+            stats_text += f'{group_short}={rho_val:.2f}{p_star}, '
+        
+ 
+        ax.text(0.05, 0.95, stats_text.rstrip(', '), 
+               transform=ax.transAxes, fontsize=9,
+               verticalalignment='top',
+               bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                        edgecolor='lightgray', alpha=0.8))
+    
+ 
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+ 
+    save_path = os.path.join(save_folder, f'{abbrev}_moca_correlation.svg')
+    plt.savefig(save_path, format='svg', facecolor='white', edgecolor='none')
+    print(f" : {save_path}")
+    
+    plt.show()
+    plt.close()
+    
+    return pd.DataFrame(all_stats)
+
+ 
+all_statistics = []
+
+for full_name, abbrev in network_mapping.items():
+    print(f"\n : {abbrev}")
+    stats_df = create_moca_style_figure(full_name, abbrev)
+    all_statistics.append(stats_df)
+
+ 
+if all_statistics:
+    combined_stats = pd.concat(all_statistics, ignore_index=True)
+    
+ 
+    stats_save_path = os.path.join(save_folder, 'moca_statistical_summary.csv')
+    combined_stats.to_csv(stats_save_path, index=False)
+    print(f"\n : {stats_save_path}")
+    
+ 
+    print("\n===   ===")
+    
+ 
+    for network in combined_stats['Network'].unique():
+        print(f"\n{network}:")
+        network_stats = combined_stats[combined_stats['Network'] == network]
+        for _, row in network_stats.iterrows():
+            p_val = row['Spearman_p']
+            p_star = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else ' (n.s.)'
+            print(f"  {row['Condition']} - {row['Group']}:")
+            print(f"    Spearman ρ = {row['Spearman_rho']:.3f}, p = {row['Spearman_p']:.4f}{p_star}")
+            print(f"      = {row['n']} (原始: {row.get('n_original', row['n'])})")
+            print(f"      = {row['Slope']:.4f}")
+
+ 
+print("\n===   ===")
+print(f" : {len(df)}")
+print(f" : {df['MoCA'].min()} - {df['MoCA'].max()}")
+print(f" :")
+
+for group in df['Group'].unique():
+    group_count = len(df[df['Group'] == group])
+    print(f"  {group}: {group_count} ({group_count/len(df)*100:.1f}%)")
+
+print(f"\n:")
+for full_name, abbrev in network_mapping.items():
+    min_val = df[full_name].min()
+    max_val = df[full_name].max()
+    mean_val = df[full_name].mean()
+    std_val = df[full_name].std()
+    print(f"  {abbrev}: {min_val:.3f} - {max_val:.3f} ( : {mean_val:.3f} ± {std_val:.3f})")
+
+
+
+
+if all_statistics:
+    print("\n===  ===")
+    
+ 
+    summary_data = []
+    for network in combined_stats['Network'].unique():
+        network_stats = combined_stats[combined_stats['Network'] == network]
+        for _, row in network_stats.iterrows():
+            summary_data.append({
+                'Network': row['Network'],
+                'Condition': row['Condition'],
+                'Group': row['Group'],
+                'Spearman_rho': row['Spearman_rho'],
+                'Spearman_p': row['Spearman_p'],
+                'Significant': ' ' if row['Spearman_p'] < 0.05 else ' ',
+                'Sample_Size': row['n']
+            })
+    
+    summary_df = pd.DataFrame(summary_data)
+    print(summary_df.to_string(index=False))
+    
+ 
+    total_tests = len(summary_df)
+    significant_tests = len(summary_df[summary_df['Significant'] == ''])
+    print(f"\n : {total_tests}  ，{significant_tests}   (p < 0.05)")
+
+print("\n===   ===")
