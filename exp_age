@@ -1,0 +1,662 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from scipy import stats
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+
+plt.style.use('seaborn-whitegrid')
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
+    'font.size': 10,
+    'axes.labelsize': 11,
+    'axes.titlesize': 12,
+    'legend.fontsize': 9,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'figure.dpi': 300,
+    'savefig.dpi': 300,
+    'savefig.bbox': 'tight',
+    'savefig.pad_inches': 0.1,
+    'axes.linewidth': 0.8,
+    'grid.linewidth': 0.5,
+    'lines.linewidth': 2.5,
+    'lines.markersize': 6,
+})
+
+
+file_path = '/Users/corawoo/Desktop/EEGs/pre_test/20260123/exp_age/exp_age1.csv'
+df = pd.read_csv(file_path)
+
+
+network_mapping = {
+    'Auditory_Core_Network': 'ACN',
+    'Auditory_Extended_Network': 'AEN',
+    'Frontoparietal_Control_Network': 'PFCN',
+    'Posterior_Default_Mode_Network': 'pDMN',
+    'Visual_Network': 'VisN',
+    'Sensorimotor_Network': 'SMN'
+}
+
+
+save_folder = '/Users/corawoo/Desktop/EEGs/pre_test/20260123/exp_correlation_cleaned'
+os.makedirs(save_folder, exist_ok=True)
+
+colors = {
+    'Normal Hearing': '#2E86AB',   
+    'Hearing Impaired': '#E76F51'  
+}
+
+ 
+condition_styles = {
+    'Eyes Closed': {'linestyle': '--', 'alpha': 0.7},
+    'Eyes Open': {'linestyle': '-', 'alpha': 0.9}
+}
+
+def remove_outliers_robust(df_column, method='iqr', threshold=1.5):
+
+    data = df_column.dropna().values
+    
+    if method == 'iqr':
+        # IQR 
+        Q1 = np.percentile(data, 25)
+        Q3 = np.percentile(data, 75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (df_column >= lower_bound) & (df_column <= upper_bound)
+        
+    elif method == 'zscore':
+        # Z 
+        z_scores = np.abs((data - np.mean(data)) / np.std(data))
+
+        data_mean = np.mean(data)
+        data_std = np.std(data)
+        z_scores_full = np.abs((df_column.values - data_mean) / data_std)
+        mask = z_scores_full <= threshold
+    
+    else:
+        #  IQR
+        Q1 = np.percentile(data, 25)
+        Q3 = np.percentile(data, 75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - threshold * IQR
+        upper_bound = Q3 + threshold * IQR
+        mask = (df_column >= lower_bound) & (df_column <= upper_bound)
+    
+    return mask
+
+def remove_curvature_outliers(x, y, method='residual', threshold=2.0):
+    
+    if len(x) < 4:
+        return np.ones_like(x, dtype=bool)
+    
+   
+    try:
+        coeff = np.polyfit(x, y, 2)
+        pred_func = np.poly1d(coeff)
+        y_pred = pred_func(x)
+        residuals = y - y_pred
+        
+        if method == 'residual':
+            residual_std = np.std(residuals)
+            mask = np.abs(residuals) <= threshold * residual_std
+            
+        elif method == 'leverage':
+ 
+            X = np.column_stack([x**2, x, np.ones_like(x)])
+            H = X @ np.linalg.inv(X.T @ X) @ X.T
+            leverage = np.diag(H)
+            mask = leverage <= threshold * np.mean(leverage)
+            
+        else:
+ 
+            residual_std = np.std(residuals)
+            mask = np.abs(residuals) <= threshold * residual_std
+            
+    except:
+ 
+        return np.ones_like(x, dtype=bool)
+    
+    return mask
+
+def clean_data_by_network(network_name, df, age_range=(50, 70), exponent_range=(0.2, 1.4)):
+    
+    cleaned_df = df.copy()
+    
+  
+    age_mask = (cleaned_df['Age'] >= age_range[0]) & (cleaned_df['Age'] <= age_range[1])
+    exp_mask = (cleaned_df[network_name] >= exponent_range[0]) & (cleaned_df[network_name] <= exponent_range[1])
+    
+ 
+    cleaned_df = cleaned_df[age_mask & exp_mask].copy()
+    
+ 
+    for condition in ['Eyes Closed', 'Eyes Open']:
+        for group in ['Normal Hearing', 'Hearing Impaired']:
+            mask = (cleaned_df['Condition'] == condition) & (cleaned_df['Group'] == group)
+            subset = cleaned_df[mask]
+            
+            if len(subset) >= 5:  
+                x = subset['Age'].values
+                y = subset[network_name].values
+                
+ 
+                iqr_mask = remove_outliers_robust(subset[network_name], method='iqr', threshold=1.5)
+                cleaned_subset = subset[iqr_mask]
+                
+                if len(cleaned_subset) >= 4:
+ 
+                    x_clean = cleaned_subset['Age'].values
+                    y_clean = cleaned_subset[network_name].values
+                    residual_mask = remove_curvature_outliers(x_clean, y_clean, method='residual', threshold=2.5)
+                    
+ 
+                    to_remove = cleaned_subset[~residual_mask].index
+                    cleaned_df = cleaned_df.drop(to_remove)
+    
+ 
+    group_counts = cleaned_df.groupby(['Condition', 'Group']).size()
+    valid_groups = group_counts[group_counts >= 3].index
+    
+ 
+    valid_mask = cleaned_df.apply(
+        lambda row: (row['Condition'], row['Group']) in valid_groups, axis=1
+    )
+    
+    return cleaned_df[valid_mask].copy()
+
+def bootstrap_ci(x, y, n_bootstrap=1000, ci_level=0.95):
+ 
+    n_samples = len(x)
+    bootstrap_predictions = []
+    
+    for _ in range(n_bootstrap):
+ 
+        indices = np.random.choice(n_samples, n_samples, replace=True)
+        x_boot = x[indices]
+        y_boot = y[indices]
+        
+        try:
+ 
+            coeff = np.polyfit(x_boot, y_boot, 2)
+            pred_func = np.poly1d(coeff)
+            
+ 
+            x_range = np.linspace(x.min(), x.max(), 200)
+            y_pred = pred_func(x_range)
+            bootstrap_predictions.append(y_pred)
+        except:
+            continue
+    
+    if bootstrap_predictions:
+        bootstrap_predictions = np.array(bootstrap_predictions)
+ 
+        alpha = (1 - ci_level) / 2
+        lower = np.percentile(bootstrap_predictions, alpha * 100, axis=0)
+        upper = np.percentile(bootstrap_predictions, (1 - alpha) * 100, axis=0)
+        return x_range, lower, upper
+    
+    return None, None, None
+
+def perform_robust_statistical_tests(network_name, condition, df):
+ 
+    normal_mask = (df['Group'] == 'Normal Hearing') & (df['Condition'] == condition)
+    impaired_mask = (df['Group'] == 'Hearing Impaired') & (df['Condition'] == condition)
+    
+    normal_values = df[normal_mask][network_name].values
+    impaired_values = df[impaired_mask][network_name].values
+    normal_ages = df[normal_mask]['Age'].values
+    impaired_ages = df[impaired_mask]['Age'].values
+    
+ 
+    if len(normal_values) < 4 or len(impaired_values) < 4:
+        return {}
+    
+    results = {}
+    
+    # 1.  Mann-Whitney U 
+    try:
+        mw_stat, mw_p = stats.mannwhitneyu(normal_values, impaired_values, alternative='two-sided')
+        results['MannWhitney_U'] = mw_stat
+        results['MannWhitney_p'] = mw_p
+    except:
+        results['MannWhitney_U'] = np.nan
+        results['MannWhitney_p'] = np.nan
+    
+    # 2.  
+    try:
+        age_mw_stat, age_mw_p = stats.mannwhitneyu(normal_ages, impaired_ages, alternative='two-sided')
+        results['Age_MannWhitney_U'] = age_mw_stat
+        results['Age_MannWhitney_p'] = age_mw_p
+    except:
+        results['Age_MannWhitney_U'] = np.nan
+        results['Age_MannWhitney_p'] = np.nan
+    
+    # 3.  
+    try:
+        normal_coeff = np.polyfit(normal_ages, normal_values, 2)
+        impaired_coeff = np.polyfit(impaired_ages, impaired_values, 2)
+        
+        results['Normal_a_coeff'] = normal_coeff[0]
+        results['Normal_b_coeff'] = normal_coeff[1]
+        results['Normal_c_coeff'] = normal_coeff[2]
+        results['Impaired_a_coeff'] = impaired_coeff[0]
+        results['Impaired_b_coeff'] = impaired_coeff[1]
+        results['Impaired_c_coeff'] = impaired_coeff[2]
+        results['a_coeff_diff'] = impaired_coeff[0] - normal_coeff[0]
+        results['b_coeff_diff'] = impaired_coeff[1] - normal_coeff[1]
+        
+        # 4.  bootstrap 
+        n_bootstrap = 2000
+        normal_a_boot = []
+        impaired_a_boot = []
+        
+        for _ in range(n_bootstrap):
+            #  
+            indices = np.random.choice(len(normal_ages), len(normal_ages), replace=True)
+            try:
+                coeff = np.polyfit(normal_ages[indices], normal_values[indices], 2)
+                normal_a_boot.append(coeff[0])
+            except:
+                pass
+            
+            #  
+            indices = np.random.choice(len(impaired_ages), len(impaired_ages), replace=True)
+            try:
+                coeff = np.polyfit(impaired_ages[indices], impaired_values[indices], 2)
+                impaired_a_boot.append(coeff[0])
+            except:
+                pass
+        
+        if normal_a_boot and impaired_a_boot:
+           
+            a_diff_boot = np.array(impaired_a_boot) - np.array(normal_a_boot)
+           
+            a_p_value = 2 * min(
+                np.mean(a_diff_boot <= 0),
+                np.mean(a_diff_boot >= 0)
+            )
+            results['a_coeff_p'] = a_p_value
+        else:
+            results['a_coeff_p'] = np.nan
+        
+        # 5.  
+        normal_pred = np.poly1d(normal_coeff)(normal_ages)
+        impaired_pred = np.poly1d(impaired_coeff)(impaired_ages)
+        
+        normal_r2 = 1 - np.sum((normal_values - normal_pred)**2) / np.sum((normal_values - np.mean(normal_values))**2)
+        impaired_r2 = 1 - np.sum((impaired_values - impaired_pred)**2) / np.sum((impaired_values - np.mean(impaired_values))**2)
+        
+        results['Normal_R2'] = normal_r2
+        results['Impaired_R2'] = impaired_r2
+        
+        # 6.  
+        normal_vertex = -normal_coeff[1] / (2 * normal_coeff[0]) if normal_coeff[0] != 0 else np.nan
+        impaired_vertex = -impaired_coeff[1] / (2 * impaired_coeff[0]) if impaired_coeff[0] != 0 else np.nan
+        
+        results['Normal_vertex_age'] = normal_vertex
+        results['Impaired_vertex_age'] = impaired_vertex
+        
+        # 7.  Spearman
+        normal_rho, normal_spearman_p = stats.spearmanr(normal_ages, normal_values)
+        impaired_rho, impaired_spearman_p = stats.spearmanr(impaired_ages, impaired_values)
+        
+        results['Normal_Spearman_rho'] = normal_rho
+        results['Normal_Spearman_p'] = normal_spearman_p
+        results['Impaired_Spearman_rho'] = impaired_rho
+        results['Impaired_Spearman_p'] = impaired_spearman_p
+        
+    except Exception as e:
+        print(f" : {e}")
+        for key in ['Normal_a_coeff', 'Normal_b_coeff', 'Normal_c_coeff', 
+                   'Impaired_a_coeff', 'Impaired_b_coeff', 'Impaired_c_coeff',
+                   'a_coeff_diff', 'b_coeff_diff', 'a_coeff_p', 
+                   'Normal_R2', 'Impaired_R2', 'Normal_vertex_age', 
+                   'Impaired_vertex_age', 'Normal_Spearman_rho', 
+                   'Normal_Spearman_p', 'Impaired_Spearman_rho', 
+                   'Impaired_Spearman_p']:
+            results[key] = np.nan
+    
+    results['Normal_n'] = len(normal_values)
+    results['Impaired_n'] = len(impaired_values)
+    
+    return results
+
+def format_p_value(p_value):
+    
+    if pd.isna(p_value):
+        return "NA"
+    if p_value < 0.001:
+        return "p < 0.001"
+    elif p_value < 0.01:
+        return f"p = {p_value:.3f}"
+    elif p_value < 0.05:
+        return f"p = {p_value:.3f}"
+    else:
+        return f"p = {p_value:.3f}"
+
+def create_cleaned_figure(network_name, abbrev, df_cleaned):
+   
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=300)
+    fig.suptitle(f'{abbrev}: Age-related Differences in Aperiodic Exponent (Cleaned Data)', 
+                 fontsize=14, fontweight='bold', y=0.98)
+    
+    all_stats = []
+    group_comparison_stats = []
+    
+    for ax_idx, condition in enumerate(['Eyes Closed', 'Eyes Open']):
+        ax = axes[ax_idx]
+        
+      
+        comparison_results = perform_robust_statistical_tests(network_name, condition, df_cleaned)
+        
+      
+        if comparison_results:
+            comparison_results['Network'] = abbrev
+            comparison_results['Condition'] = condition
+            group_comparison_stats.append(comparison_results)
+        
+        for group in ['Normal Hearing', 'Hearing Impaired']:
+            mask = (df_cleaned['Group'] == group) & (df_cleaned['Condition'] == condition)
+            group_df = df_cleaned[mask].copy()
+            
+            if len(group_df) >= 3:
+                ages = group_df['Age'].values
+                values = group_df[network_name].values
+                
+             
+                rho, spearman_p = stats.spearmanr(ages, values)
+                
+             
+                try:
+                    poly_coeff = np.polyfit(ages, values, 2)
+                    poly_func = np.poly1d(poly_coeff)
+                    
+                    age_range = np.linspace(ages.min(), ages.max(), 200)
+                    curve_values = poly_func(age_range)
+                    
+                 
+                    y_pred = poly_func(ages)
+                    residuals = values - y_pred
+                    ss_res = np.sum(residuals**2)
+                    ss_tot = np.sum((values - np.mean(values))**2)
+                    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+                    
+                 
+                    a_coeff = poly_coeff[0]
+                    if a_coeff > 0:
+                        shape = "U-shaped (convex)"
+                        vertex_age = -poly_coeff[1]/(2*a_coeff)
+                        vertex_value = poly_func(vertex_age)
+                    else:
+                        shape = "inverted U (concave)"
+                        vertex_age = -poly_coeff[1]/(2*a_coeff)
+                        vertex_value = poly_func(vertex_age) if not np.isnan(vertex_age) else np.nan
+                    
+                except Exception as e:
+                    print(f"  {abbrev}-{condition}-{group}: {e}")
+                  
+                    poly_coeff = np.polyfit(ages, values, 1)
+                    poly_func = np.poly1d(poly_coeff)
+                    age_range = np.linspace(ages.min(), ages.max(), 200)
+                    curve_values = poly_func(age_range)
+                    r_squared = 0
+                    shape = "Linear"
+                    vertex_age = np.nan
+                    vertex_value = np.nan
+                
+               
+                x_ci, y_lower, y_upper = bootstrap_ci(ages, values)
+                
+              
+                stats_dict = {
+                    'Network': abbrev,
+                    'Condition': condition,
+                    'Group': group,
+                    'n': len(ages),
+                    'Mean_Age': np.mean(ages),
+                    'SD_Age': np.std(ages),
+                    'Mean_Exponent': np.mean(values),
+                    'SD_Exponent': np.std(values),
+                    'Spearman_rho': rho,
+                    'Spearman_p': spearman_p,
+                    'Quadratic_a': poly_coeff[0] if len(poly_coeff) > 2 else np.nan,
+                    'Quadratic_b': poly_coeff[1] if len(poly_coeff) > 1 else np.nan,
+                    'Quadratic_c': poly_coeff[2] if len(poly_coeff) > 2 else np.nan,
+                    'Quadratic_R2': r_squared,
+                    'Curve_Shape': shape,
+                    'Vertex_Age': vertex_age,
+                    'Vertex_Value': vertex_value,
+                    'Min_Exponent': np.min(values),
+                    'Max_Exponent': np.max(values),
+                    'Age_Range': f"{np.min(ages):.1f}-{np.max(ages):.1f}",
+                    'Data_Status': 'Cleaned'
+                }
+                all_stats.append(stats_dict)
+                
+             
+                line_style = condition_styles[condition]['linestyle']
+                line_alpha = condition_styles[condition]['alpha']
+                
+            
+                if x_ci is not None and y_lower is not None and y_upper is not None:
+                    ax.fill_between(x_ci, y_lower, y_upper, 
+                                   color=colors[group], 
+                                   alpha=0.15,
+                                   edgecolor='none')
+                
+             
+                ax.plot(age_range, curve_values, 
+                       color=colors[group], 
+                       linestyle=line_style,
+                       linewidth=2.5,
+                       alpha=line_alpha,
+                       label=f'{group.split()[0]} (n={len(ages)})')
+                
+ 
+                ax.scatter(ages, values, 
+                          color=colors[group],
+                          alpha=0.6,
+                          s=40,
+                          edgecolor='white',
+                          linewidth=1)
+                
+            
+                if not np.isnan(vertex_age) and 50 <= vertex_age <= 70:
+                    ax.scatter(vertex_age, vertex_value, 
+                              color=colors[group], s=100, 
+                              marker='o', edgecolor='white', linewidth=1.5,
+                              zorder=5)
+        
+ 
+        ax.set_xlabel('Age (years)', fontsize=11, fontweight='bold')
+        ax.set_ylabel('Aperiodic Exponent', fontsize=11, fontweight='bold')
+        ax.set_title(f'{condition}', fontsize=12, fontweight='bold', pad=10)
+        ax.set_xlim(49, 71)
+        ax.set_ylim(0.2, 1.4)
+        ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.5)
+        ax.legend(loc='upper right', framealpha=0.9)
+        
+ 
+        if comparison_results:
+            stats_text_lines = []
+            
+ 
+            if 'Normal_Spearman_p' in comparison_results and 'Impaired_Spearman_p' in comparison_results:
+                normal_p = comparison_results['Normal_Spearman_p']
+                impaired_p = comparison_results['Impaired_Spearman_p']
+                
+                if normal_p < 0.05 or impaired_p < 0.05:
+                    normal_star = '*' if normal_p < 0.05 else ''
+                    impaired_star = '*' if impaired_p < 0.05 else ''
+                    
+                    normal_rho = comparison_results.get('Normal_Spearman_rho', np.nan)
+                    impaired_rho = comparison_results.get('Impaired_Spearman_rho', np.nan)
+                    
+                    stats_text_lines.append(f'Spearman: NH ρ={normal_rho:.2f}{normal_star}, HI ρ={impaired_rho:.2f}{impaired_star}')
+            
+ 
+            if 'a_coeff_p' in comparison_results:
+                a_p = comparison_results['a_coeff_p']
+                if a_p < 0.05:
+                    a_diff = comparison_results.get('a_coeff_diff', 0)
+                    sign = ">" if a_diff > 0 else "<"
+                    stats_text_lines.append(f'Curvature diff: HI {sign} NH ({format_p_value(a_p)})')
+            
+ 
+            if 'MannWhitney_p' in comparison_results:
+                mw_p = comparison_results['MannWhitney_p']
+                if mw_p < 0.05:
+                    stats_text_lines.append(f'Group diff: {format_p_value(mw_p)}')
+            
+ 
+            for i, line in enumerate(stats_text_lines):
+                ax.text(0.05, 0.95 - i*0.05, line, 
+                       transform=ax.transAxes, fontsize=8,
+                       verticalalignment='top',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                                edgecolor='lightgray', alpha=0.8))
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+ 
+    save_path = os.path.join(save_folder, f'{abbrev}_cleaned_analysis.svg')
+    plt.savefig(save_path, format='svg', facecolor='white', edgecolor='none')
+    print(f"已保存图片: {save_path}")
+    
+    plt.show()
+    plt.close()
+    
+ 
+    stats_df = pd.DataFrame(all_stats) if all_stats else pd.DataFrame()
+    comparison_df = pd.DataFrame(group_comparison_stats) if group_comparison_stats else pd.DataFrame()
+    
+    return stats_df, comparison_df
+
+ 
+print(" ...")
+print("=" * 60)
+
+ 
+all_cleaned_dfs = []
+all_stats_dfs = []
+all_comparison_dfs = []
+
+for full_name, abbrev in network_mapping.items():
+    print(f"\n : {abbrev}")
+    
+ 
+    df_cleaned = clean_data_by_network(full_name, df, age_range=(50, 70), exponent_range=(0.2, 1.4))
+    
+ 
+    original_count = len(df[df[full_name].notna()])
+    cleaned_count = len(df_cleaned)
+    removed_count = original_count - cleaned_count
+    
+    print(f"   : {original_count}")
+    print(f"   : {cleaned_count}")
+    print(f"   : {removed_count} ({removed_count/original_count*100:.1f}%)")
+    
+    if cleaned_count < 10:
+        print(f"   : {abbrev}   ({cleaned_count})")
+        continue
+    
+    
+    df_cleaned['Network'] = abbrev
+    all_cleaned_dfs.append(df_cleaned)
+    
+    
+    stats_df, comparison_df = create_cleaned_figure(full_name, abbrev, df_cleaned)
+    
+    if not stats_df.empty:
+        all_stats_dfs.append(stats_df)
+    
+    if not comparison_df.empty:
+        all_comparison_dfs.append(comparison_df)
+
+ 
+if all_cleaned_dfs:
+    all_cleaned_combined = pd.concat(all_cleaned_dfs, ignore_index=True)
+    cleaned_save_path = os.path.join(save_folder, 'all_networks_cleaned_data.csv')
+    all_cleaned_combined.to_csv(cleaned_save_path, index=False, float_format='%.4f')
+    print(f"\n : {cleaned_save_path}")
+
+ 
+if all_stats_dfs:
+    all_stats_combined = pd.concat(all_stats_dfs, ignore_index=True)
+    stats_save_path = os.path.join(save_folder, 'cleaned_statistics.csv')
+    all_stats_combined.to_csv(stats_save_path, index=False, float_format='%.4f')
+    print(f" : {stats_save_path}")
+ 
+if all_comparison_dfs:
+    comparison_combined = pd.concat(all_comparison_dfs, ignore_index=True)
+    comparison_save_path = os.path.join(save_folder, 'cleaned_group_comparisons.csv')
+    comparison_combined.to_csv(comparison_save_path, index=False, float_format='%.4f')
+    print(f" : {comparison_save_path}")
+
+ 
+print("\n" + "=" * 60)
+print(" ")
+print("=" * 60)
+
+if all_stats_dfs and not all_stats_combined.empty:
+    # 1. Spearman 
+    significant_spearman = all_stats_combined[all_stats_combined['Spearman_p'] < 0.05]
+    if not significant_spearman.empty:
+        print("\n  (p < 0.05):")
+        for idx, row in significant_spearman.iterrows():
+            star = '***' if row['Spearman_p'] < 0.001 else '**' if row['Spearman_p'] < 0.01 else '*'
+            print(f"  {row['Network']} - {row['Condition']} - {row['Group']}: "
+                  f"ρ = {row['Spearman_rho']:.3f}{star}, p = {row['Spearman_p']:.4f}, n = {row['n']}")
+    else:
+        print("\n ")
+    
+    # 2.  
+    print(f"\n :")
+    shape_counts = all_stats_combined.groupby(['Network', 'Condition', 'Group'])['Curve_Shape'].first().unstack()
+    print(shape_counts)
+
+if all_comparison_dfs and not comparison_combined.empty:
+    # 3.  
+    significant_curvature = comparison_combined[comparison_combined['a_coeff_p'] < 0.05]
+    if not significant_curvature.empty:
+        print("\n  (p < 0.05):")
+        for idx, row in significant_curvature.iterrows():
+            sign = ">" if row['a_coeff_diff'] > 0 else "<"
+            print(f"  {row['Network']} - {row['Condition']}: "
+                  f"HI a {sign} NH a, p = {row['a_coeff_p']:.4f}, "
+                  f"NH n = {row['Normal_n']}, HI n = {row['Impaired_n']}")
+    else:
+        print("\n ")
+    
+    # 4. Mann-Whitney U
+    significant_mw = comparison_combined[comparison_combined['MannWhitney_p'] < 0.05]
+    if not significant_mw.empty:
+        print("\n  (Mann-Whitney U):")
+        for idx, row in significant_mw.iterrows():
+            print(f"  {row['Network']} - {row['Condition']}: "
+                  f"U = {row['MannWhitney_U']:.1f}, p = {row['MannWhitney_p']:.4f}")
+    else:
+        print("\n ")
+
+
+summary_data = {
+    'Analysis_Date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+    'Original_Total_Entries': len(df),
+    'Cleaned_Total_Entries': len(all_cleaned_combined) if all_cleaned_dfs else 0,
+    'Percentage_Removed': (len(df) - len(all_cleaned_combined))/len(df)*100 if all_cleaned_dfs else 100,
+    'Data_File': file_path,
+    'Save_Folder': save_folder,
+    'Significant_Spearman_Correlations': len(significant_spearman) if 'significant_spearman' in locals() else 0,
+    'Significant_Curvature_Differences': len(significant_curvature) if 'significant_curvature' in locals() else 0,
+    'Significant_Group_Differences': len(significant_mw) if 'significant_mw' in locals() else 0
+}
+
+summary_df = pd.DataFrame([summary_data])
+summary_save_path = os.path.join(save_folder, 'cleaning_summary.csv')
+summary_df.to_csv(summary_save_path, index=False)
+

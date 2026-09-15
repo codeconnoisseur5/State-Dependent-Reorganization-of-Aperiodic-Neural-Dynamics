@@ -1,0 +1,318 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from scipy import stats
+import seaborn as sns
+
+ 
+plt.style.use('seaborn-whitegrid')
+plt.rcParams.update({
+    'font.family': 'Arial',   
+    'axes.labelsize': 11,
+    'axes.titlesize': 12,
+    'legend.fontsize': 9,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'figure.dpi': 300,
+    'savefig.dpi': 300,
+    'savefig.bbox': 'tight',
+    'savefig.pad_inches': 0.1,
+    'axes.linewidth': 0.8,
+    'grid.linewidth': 0.5,
+    'lines.linewidth': 2,
+    'lines.markersize': 6,
+    'patch.linewidth': 0.5,
+})
+
+file_path = '/Users...'
+df = pd.read_csv(file_path)
+
+
+ 
+network_mapping = {
+    'Auditory_Core_Network': 'ACN',
+    'Auditory_Extended_Network': 'AEN', 
+    'Frontoparietal_Control_Network': 'FPCN',
+    'Posterior_Default_Mode_Network': 'pDMN',
+    'Visual_Network': 'VisN',
+    'Sensorimotor_Network': 'SMN'
+}
+
+ 
+save_folder = '/Users...'
+os.makedirs(save_folder, exist_ok=True)
+
+ 
+colors = {
+    'Normal Hearing': '#1f77b4',   
+    'Hearing Impaired': '#d62728'  
+}
+
+ 
+condition_styles = {
+    'Eyes Closed': {'linestyle': '--', 'alpha': 0.7},
+    'Eyes Open': {'linestyle': '-', 'alpha': 0.9}
+}
+
+def remove_outliers_zscore(data, column, threshold=3):
+    
+    z_scores = np.abs(stats.zscore(data[column]))
+    return data[z_scores < threshold]
+
+def create_exp_psd_correlation_figure(network_name, abbrev):
+     
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=300)
+    fig.suptitle(f'{abbrev}: Correlation between Aperiodic Exponent and Alpha Power (PSD)', 
+                 fontsize=14, fontweight='bold', y=0.98)
+    
+   
+    all_stats = []
+    
+    for ax_idx, condition in enumerate(['Eyes Closed', 'Eyes Open']):
+        ax = axes[ax_idx]
+
+        group_data = {}
+        
+        for group in ['Normal Hearing', 'Hearing Impaired']:
+            
+            mask = (df['Group'] == group) & (df['Condition'] == condition)
+            group_df = df[mask].copy()
+            
+            if len(group_df) > 3:  
+                
+                exp_values = group_df[f'{network_name}_exp'].values
+                psd_values = group_df[f'{network_name}_psd'].values
+                
+               
+                psd_df = pd.DataFrame({'psd': psd_values})
+                psd_df_clean = remove_outliers_zscore(psd_df, 'psd', threshold=3)
+                
+                
+                exp_values_clean = exp_values[psd_df_clean.index]
+                psd_values_clean = psd_df_clean['psd'].values
+                
+                 
+                if len(psd_values_clean) > 3:
+                   
+                    slope, intercept, r_value, p_value, std_err = stats.linregress(exp_values_clean, psd_values_clean)
+                    
+                    
+                    rho, spearman_p = stats.spearmanr(exp_values_clean, psd_values_clean)
+                    
+                    
+                    all_stats.append({
+                        'Network': abbrev,
+                        'Condition': condition,
+                        'Group': group,
+                        'n': len(exp_values_clean),
+                        'n_original': len(group_df),
+                        'Linear_r': r_value,
+                        'Linear_p': p_value,
+                        'Spearman_rho': rho,
+                        'Spearman_p': spearman_p,
+                        'Slope': slope,
+                        'Exp_mean': np.mean(exp_values_clean),
+                        'Exp_std': np.std(exp_values_clean),
+                        'PSD_mean': np.mean(psd_values_clean),
+                        'PSD_std': np.std(psd_values_clean)
+                    })
+                    
+                   
+                    exp_range = np.linspace(exp_values_clean.min(), exp_values_clean.max(), 100)
+                    pred_values = intercept + slope * exp_range
+                    
+                  
+                  
+                    residuals = psd_values_clean - (intercept + slope * exp_values_clean)
+                    stderr_pred = np.std(residuals) * np.sqrt(1/len(exp_values_clean) + 
+                                                             (exp_range - np.mean(exp_values_clean))**2 / 
+                                                             np.sum((exp_values_clean - np.mean(exp_values_clean))**2))
+                    
+                    
+                    z_value = 1.37  
+                    ci_lower = pred_values - z_value * stderr_pred
+                    ci_upper = pred_values + z_value * stderr_pred
+                    
+                    
+                    ax.fill_between(exp_range, ci_lower, ci_upper, 
+                                   color=colors[group], alpha=0.15, linewidth=0)
+                    
+                    
+                    line_style = condition_styles[condition]['linestyle']
+                    line_alpha = condition_styles[condition]['alpha']
+                    ax.plot(exp_range, pred_values, 
+                           color=colors[group], 
+                           linestyle=line_style,
+                           linewidth=2.5,
+                           alpha=line_alpha,
+                           label=f'{group.split()[0]} (n={len(exp_values_clean)})')
+                    
+                    ax.scatter(exp_values_clean, psd_values_clean, 
+                              color=colors[group],
+                              alpha=0.4,
+                              s=40,
+                              edgecolor=colors[group],
+                              linewidth=0.5)
+                    
+                   
+                    group_data[group] = {
+                        'exp_values': exp_values_clean,
+                        'psd_values': psd_values_clean,
+                        'pred': pred_values,
+                        'exp_range': exp_range
+                    }
+        
+        
+ 
+        ax.set_xlabel('Aperiodic Exponent', fontsize=11, fontweight='bold')
+        ax.set_ylabel('Alpha Power (PSD)', fontsize=11, fontweight='bold')
+        ax.set_title(f'{condition}', fontsize=12, fontweight='bold', pad=10)
+        
+ 
+        if group_data:
+            all_exp = []
+            all_psd = []
+            for group in group_data:
+                all_exp.extend(group_data[group]['exp_values'])
+                all_psd.extend(group_data[group]['psd_values'])
+            
+            exp_min, exp_max = np.min(all_exp), np.max(all_exp)
+            psd_min, psd_max = np.min(all_psd), np.max(all_psd)
+            
+            exp_range = exp_max - exp_min
+            psd_range = psd_max - psd_min
+            
+            ax.set_xlim(exp_min - 0.05 * exp_range, exp_max + 0.05 * exp_range)
+            ax.set_ylim(psd_min - 0.05 * psd_range, psd_max + 0.05 * psd_range)
+        
+ 
+        ax.grid(True, alpha=0.1, linestyle='-', linewidth=0.5)
+        
+ 
+        ax.legend(loc='upper right', frameon=True, fancybox=True, 
+                 framealpha=0.9, edgecolor='lightgray')
+        
+ 
+        stats_text = f'Spearman ρ: '
+        group_stats = [s for s in all_stats if s['Condition'] == condition]
+        for stat in group_stats:
+            group_short = stat['Group'].split()[0]
+            rho_val = stat['Spearman_rho']
+            p_val = stat['Spearman_p']
+            p_star = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else ''
+            stats_text += f'{group_short}={rho_val:.2f}{p_star}, '
+        
+ 
+        if stats_text != f'Spearman ρ: ':
+            ax.text(0.05, 0.95, stats_text.rstrip(', '), 
+                   transform=ax.transAxes, fontsize=9,
+                   verticalalignment='top',
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
+                            edgecolor='lightgray', alpha=0.8))
+    
+ 
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+ 
+    save_path = os.path.join(save_folder, f'{abbrev}_exp_psd_correlation.svg')
+    plt.savefig(save_path, format='svg', facecolor='white', edgecolor='none')
+    print(f" : {save_path}")
+    
+    plt.show()
+    plt.close()
+    
+    return pd.DataFrame(all_stats)
+
+ 
+all_statistics = []
+
+for full_name, abbrev in network_mapping.items():
+    print(f"\n : {abbrev} ({full_name})")
+    stats_df = create_exp_psd_correlation_figure(full_name, abbrev)
+    all_statistics.append(stats_df)
+
+ 
+if all_statistics:
+    combined_stats = pd.concat(all_statistics, ignore_index=True)
+    
+ 
+    stats_save_path = os.path.join(save_folder, 'exp_psd_correlation_statistics.csv')
+    combined_stats.to_csv(stats_save_path, index=False)
+    print(f"\n : {stats_save_path}")
+    
+ 
+    print("\n===   ===")
+    
+ 
+    for network in combined_stats['Network'].unique():
+        print(f"\n{network}:")
+        network_stats = combined_stats[combined_stats['Network'] == network]
+        for _, row in network_stats.iterrows():
+            p_val = row['Spearman_p']
+            p_star = '***' if p_val < 0.001 else '**' if p_val < 0.01 else '*' if p_val < 0.05 else ' (n.s.)'
+            print(f"  {row['Condition']} - {row['Group']}:")
+            print(f"    Spearman ρ = {row['Spearman_rho']:.3f}, p = {row['Spearman_p']:.4f}{p_star}")
+            print(f"      = {row['n']} ( : {row.get('n_original', row['n'])})")
+            print(f"      = {row['Slope']:.4f}")
+ 
+print("\n===  ===")
+print(f" : {len(df)}")
+print(f" :")
+
+for group in df['Group'].unique():
+    group_count = len(df[df['Group'] == group])
+    print(f"  {group}: {group_count}  ({group_count/len(df)*100:.1f}%)")
+
+print(f"\n :")
+for condition in df['Condition'].unique():
+    condition_count = len(df[df['Condition'] == condition])
+    print(f"  {condition}: {condition_count}   ({condition_count/len(df)*100:.1f}%)")
+
+print(f"\n :")
+for full_name, abbrev in network_mapping.items():
+    exp_col = f'{full_name}_exp'
+    psd_col = f'{full_name}_psd'
+    
+    exp_min = df[exp_col].min()
+    exp_max = df[exp_col].max()
+    exp_mean = df[exp_col].mean()
+    exp_std = df[exp_col].std()
+    
+    psd_min = df[psd_col].min()
+    psd_max = df[psd_col].max()
+    psd_mean = df[psd_col].mean()
+    psd_std = df[psd_col].std()
+    
+    print(f"  {abbrev}:")
+    print(f"    Exp: {exp_min:.3f} - {exp_max:.3f} (: {exp_mean:.3f} ± {exp_std:.3f})")
+    print(f"    PSD: {psd_min:.3f} - {psd_max:.3f} (: {psd_mean:.3f} ± {psd_std:.3f})")
+
+ 
+if all_statistics:
+    print("\n===   ===")
+    
+ 
+    summary_data = []
+    for network in combined_stats['Network'].unique():
+        network_stats = combined_stats[combined_stats['Network'] == network]
+        for _, row in network_stats.iterrows():
+            summary_data.append({
+                'Network': row['Network'],
+                'Condition': row['Condition'],
+                'Group': row['Group'],
+                'Spearman_rho': row['Spearman_rho'],
+                'Spearman_p': row['Spearman_p'],
+                'Significant': '' if row['Spearman_p'] < 0.05 else '',
+                'Sample_Size': row['n']
+            })
+    
+    summary_df = pd.DataFrame(summary_data)
+    print(summary_df.to_string(index=False))
+    
+
+    total_tests = len(summary_df)
+    significant_tests = len(summary_df[summary_df['Significant'] == ''])
+
+
+print("\n===   ===")
