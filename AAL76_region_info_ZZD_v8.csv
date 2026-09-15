@@ -1,0 +1,77 @@
+﻿Labels,Regions,Regions,abbr.,x(voxel),y(voxel),z(voxel),x(mm),y(mm),z(mm),# of voxels within ROIs,Functional classification,,Anatomical classification
+1,Precentral_L,Precental gyrus,PreCG.L,51,120,123,-38.65,-5.68,50.94,1028,Primary,,Frontal
+2,Precentral_R,Precental gyrus,PreCG.R,131,118,124,41.37,-8.21,52.09,1002,Primary,,Frontal
+3,Frontal_Sup_L,"Superior frontal gyrus, dorsolateral",SFGdor.L,72,161,114,-18.45,34.81,42.2,1076,Association,Heteromodal,Prefrontal
+4,Frontal_Sup_R,"Superior frontal gyrus, dorsolateral",SFGdor.R,112,157,116,21.9,31.12,43.82,1159,Association,Heteromodal,Prefrontal
+5,Frontal_Sup_Orb_L,"Superior frontal gyrus, orbital part",ORBsup.L,73,173,59,-16.56,47.32,-13.31,292,Paralimbic,,Prefrontal
+6,Frontal_Sup_Orb_R,"Superior frontal gyrus, orbital part",ORBsup.R,108,174,58,18.49,48.1,-14.02,311,Paralimbic,,Prefrontal
+7,Frontal_Mid_L,Middle frontal gyrus,MFG.L,57,159,107,-33.43,32.73,35.46,1448,Association,Heteromodal,Prefrontal
+8,Frontal_Mid_R,Middle frontal gyrus,MFG.R,128,159,106,37.59,33.06,34.04,1510,Association,Heteromodal,Prefrontal
+9,Frontal_Mid_Orb_L,"Middle frontal gyrus, orbital part",ORBmid.L,59,176,62,-30.65,50.43,-9.62,270,Paralimbic,,Prefrontal
+10,Frontal_Mid_Orb_R,"Middle frontal gyrus, orbital part",ORBmid.R,123,179,61,33.18,52.59,-10.73,294,Paralimbic,,Prefrontal
+11,Frontal_Inf_Oper_L,"Inferior frontal gyrus, opercular part",IFGoperc.L,42,139,91,-48.43,12.73,19.02,326,Association,,Prefrontal
+12,Frontal_Inf_Oper_R,"Inferior frontal gyrus, opercular part",IFGoperc.R,140,141,93,50.2,14.98,21.41,421,Association,,Prefrontal
+13,Frontal_Inf_Tri_L,"Inferior frontal gyrus, triangular part",IFGtriang.L,44,156,86,-45.58,29.91,13.99,726,Association,Heteromodal,Prefrontal
+14,Frontal_Inf_Tri_R,"Inferior frontal gyrus, triangular part",IFGtriang.R,140,156,86,50.33,30.16,14.17,629,Association,Heteromodal,Prefrontal
+15,Frontal_Inf_Orb_L,"Inferior frontal gyrus, orbital part",ORBinf.L,54,157,60,-35.98,30.71,-12.11,503,Paralimbic,,Prefrontal
+16,Frontal_Inf_Orb_R,"Inferior frontal gyrus, orbital part",ORBinf.R,131,158,60,41.22,32.23,-11.91,505,Paralimbic,,Prefrontal
+17,Rolandic_Oper_L,Rolandic operculum,ROL.L,43,118,86,-47.16,-8.48,13.95,302,Association,,Frontal
+18,Rolandic_Oper_R,Rolandic operculum,ROL.R,143,120,87,52.65,-6.25,14.63,399,Association,,Frontal
+19,Supp_Motor_Area_L,Supplementary motor area,SMA.L,85,131,133,-5.32,4.85,61.38,656,Association,Unimodal,Frontal
+20,Supp_Motor_Area_R,Supplementary motor area,SMA.R,99,126,134,8.62,0.17,61.85,666,Association,Unimodal,Frontal
+21,Frontal_Sup_Medial_L,"Superior frontal gyrus, medial",SFGmed.L,85,175,103,-4.8,49.17,30.89,846,Association,,Prefrontal
+22,Frontal_Sup_Medial_R,"Superior frontal gyrus, medial",SFGmed.R,99,177,102,9.1,50.84,30.22,641,Association,,Prefrontal
+23,Frontal_Med_Orb_L,"Superior frontal gyrus, medial orbital",ORBsupmed.L,85,180,65,-5.17,54.06,-7.4,225,Paralimbic,,Prefrontal
+24,Frontal_Med_Orb_R,"Superior frontal gyrus, medial orbital",ORBsupmed.R,98,178,65,8.16,51.67,-7.13,262,Paralimbic,,Prefrontal
+25,Rectus_L,Gyrus rectus,REC.L,85,163,54,-5.08,37.07,-18.14,261,Paralimbic,,Prefrontal
+26,Rectus_R,Gyrus rectus,REC.R,98,162,54,8.35,35.64,-18.04,218,Paralimbic,,Prefrontal
+27,Insula_L,Insula,INS.L,55,133,75,-35.13,6.65,3.44,566,Paralimbic,,Subcortical
+28,Insula_R,Insula,INS.R,129,132,74,39.02,6.25,2.08,539,Paralimbic,,Subcortical
+29,Cingulum_Ant_L,Anterior cingulate and paracingulate gyri,ACG.L,86,161,86,-4.04,35.4,13.95,426,Paralimbic,,Prefrontal
+30,Cingulum_Ant_R,Anterior cingulate and paracingulate gyri,ACG.R,98,163,88,8.46,37.01,15.84,397,Paralimbic,,Prefrontal
+31,Cingulum_Mid_L,Median cingulate and paracingulate gyri,DCG.L,85,111,114,-5.48,-14.92,41.57,619,Paralimbic,,Frontal
+32,Cingulum_Mid_R,Median cingulate and paracingulate gyri,DCG.R,98,117,112,8.02,-8.83,39.79,605,Paralimbic,,Frontal
+33,Cingulum_Post_L,Posterior cingulate gyrus,PCG.L,85,83,97,-4.85,-42.92,24.67,137,Paralimbic,,Parietal
+34,Cingulum_Post_R,Posterior cingulate gyrus,PCG.R,97,84,94,7.44,-41.81,21.87,87,Paralimbic,,Parietal
+35,ParaHippocampal_L,Parahippocampal gyrus,PHG.L,69,110,51,-21.17,-15.95,-20.7,286,Paralimbic,,Temporal
+36,ParaHippocampal_R,Parahippocampal gyrus,PHG.R,115,111,52,25.38,-15.15,-20.47,316,Paralimbic,,Temporal
+37,Calcarine_L,Calcarine fissure and surrounding cortex,CAL.L,83,47,78,-7.14,-78.67,6.44,648,Primary,,Occipital
+38,Calcarine_R,Calcarine fissure and surrounding cortex,CAL.R,106,53,81,15.99,-73.15,9.4,542,Primary,,Occipital
+39,Cuneus_L,Cuneus,CUN.L,84,46,99,-5.93,-80.13,27.22,449,Association,,Occipital
+40,Cuneus_R,Cuneus,CUN.R,104,47,100,13.51,-79.36,28.23,434,Association,,Occipital
+41,Lingual_L,Lingual gyrus,LING.L,75,58,67,-14.62,-67.56,-4.63,660,Association,Unimodal,Occipital
+42,Lingual_R,Lingual gyrus,LING.R,106,59,68,16.29,-66.93,-3.87,678,Association,Unimodal,Occipital
+43,Occipital_Sup_L,Superior occipital gyrus,SOG.L,73,42,100,-16.54,-84.26,28.17,396,Association,,Occipital
+44,Occipital_Sup_R,Superior occipital gyrus,SOG.R,114,45,103,24.29,-80.85,30.59,428,Association,,Occipital
+45,Occipital_Mid_L,Middle occipital gyrus,MOG.L,58,45,88,-32.39,-80.73,16.11,959,Association,Unimodal,Occipital
+46,Occipital_Mid_R,Middle occipital gyrus,MOG.R,127,46,91,37.39,-79.7,19.42,595,Association,Unimodal,Occipital
+47,Occipital_Inf_L,Inferior occipital gyrus,IOG.L,54,48,64,-36.36,-78.29,-7.84,268,Association,Unimodal,Occipital
+48,Occipital_Inf_R,Inferior occipital gyrus,IOG.R,128,44,64,38.16,-81.99,-7.61,314,Association,Unimodal,Occipital
+49,Fusiform_L,Fusiform gyrus,FFG.L,59,86,52,-31.16,-40.3,-20.23,687,Association,Unimodal,Temporal
+50,Fusiform_R,Fusiform gyrus,FFG.R,124,87,52,33.97,-39.1,-20.18,760,Association,Unimodal,Temporal
+51,Postcentral_L,Postcentral gyrus,PoCG.L,48,103,121,-42.46,-22.63,48.92,1159,Primary,,Parietal
+52,Postcentral_R,Postcentral gyrus,PoCG.R,131,101,125,41.43,-25.49,52.55,1138,Primary,,Parietal
+53,Parietal_Sup_L,Superior parietal gyrus,SPG.L,67,66,131,-23.45,-59.56,58.96,631,Association,Heteromodal,Parietal
+54,Parietal_Sup_R,Superior parietal gyrus,SPG.R,116,67,134,26.11,-59.18,62.06,647,Association,Heteromodal,Parietal
+55,Parietal_Inf_L,"Inferior parietal, but supramarginal and angular gyri",IPL.L,47,80,119,-42.8,-45.82,46.74,696,Association,Heteromodal,Parietal
+56,Parietal_Inf_R,"Inferior parietal, but supramarginal and angular gyri",IPL.R,136,80,122,46.46,-46.29,49.54,419,Association,Heteromodal,Parietal
+57,SupraMarginal_L,Supramarginal gyrus,SMG.L,34,92,102,-55.79,-33.64,30.45,354,Association,Heteromodal,Parietal
+58,SupraMarginal_R,Supramarginal gyrus,SMG.R,148,94,106,57.61,-31.5,34.48,550,Association,Heteromodal,Parietal
+59,Angular_L,Angular gyrus,ANG.L,46,65,108,-44.14,-60.82,35.59,342,Association,Heteromodal,Parietal
+60,Angular_R,Angular gyrus,ANG.R,136,66,111,45.51,-59.98,38.63,496,Association,Heteromodal,Parietal
+61,Precuneus_L,Precuneus,PCUN.L,83,70,120,-7.24,-56.07,48.01,1079,Association,Heteromodal,Parietal
+62,Precuneus_R,Precuneus,PCUN.R,100,70,116,9.98,-56.05,43.77,935,Association,Heteromodal,Parietal
+63,Paracentral_Lobule_L,Paracentral lobule,PCL.L,82,101,142,-7.63,-25.36,70.07,422,Association,,Parietal
+64,Paracentral_Lobule_R,Paracentral lobule,PCL.R,97,94,140,7.48,-31.59,68.09,227,Association,,Parietal
+65,Heschl_L,Heschl gyrus,HES.L,48,107,82,-41.99,-18.88,9.98,72,Primary,,Temporal
+66,Heschl_R,Heschl gyrus,HES.R,136,109,82,45.86,-17.15,10.41,73,Primary,,Temporal
+67,Temporal_Sup_L,Superior temporal gyrus,STG.L,37,105,79,-53.16,-20.68,7.13,672,Association,Heteromodal,Temporal
+68,Temporal_Sup_R,Superior temporal gyrus,STG.R,148,104,79,58.15,-21.78,6.8,963,Association,Heteromodal,Temporal
+69,Temporal_Pole_Sup_L,Temporal pole: superior temporal gyrus,TPOsup.L,50,141,52,-39.88,15.14,-20.18,382,Paralimbic,,Temporal
+70,Temporal_Pole_Sup_R,Temporal pole: superior temporal gyrus,TPOsup.R,138,141,55,48.25,14.75,-16.86,400,Paralimbic,,Temporal
+71,Temporal_Mid_L,Middle temporal gyrus,MTG.L,34,92,70,-55.52,-33.8,-2.2,1439,Association,Heteromodal,Temporal
+72,Temporal_Mid_R,Middle temporal gyrus,MTG.R,147,89,71,57.47,-37.23,-1.47,1356,Association,Heteromodal,Temporal
+73,Temporal_Pole_Mid_L,Temporal pole: middle temporal gyrus,TPOmid.L,54,141,38,-36.32,14.59,-34.08,222,Paralimbic,,Temporal
+74,Temporal_Pole_Mid_R,Temporal pole: middle temporal gyrus,TPOmid.R,134,141,40,44.22,14.55,-32.23,349,Paralimbic,,Temporal
+75,Temporal_Inf_L,Inferior temporal gyrus,ITG.L,40,98,49,-49.77,-28.05,-23.17,941,Association,Heteromodal,Temporal
+76,Temporal_Inf_R,Inferior temporal gyrus,ITG.R,144,95,50,53.69,-31.07,-22.32,1072,Association,Heteromodal,Temporal
